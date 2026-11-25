@@ -6,7 +6,7 @@ In evaluating $g(n) = \min_{|A|=n, A \subset \mathbb{R}} M(A) = \min_{|A|=n, A \
 
 1. **Unconditionally Proven Exact Values ($n \in [1, 59]$):**
    - $n_{\max}(1) = 3$, $n_{\max}(2) = 7$, $n_{\max}(3) = 13$ (`proofs/ThresholdsStandalone.lean`), and $n_{\max}(4) = 21$ (`proofs/Threshold45Standalone.lean`) are unconditionally proven over sorted lists / $\mathbb{R}$ in **Pure Lean 4** (zero `sorry`, zero external axioms).
-   - $n_{\max}(5) = 31$ (`m = 16` UNSAT over $\mathbb{R}$, paired with Pure Lean 4 `A31`) and $n_{\max}(6) = 43$ (`m = 22` UNSAT across all 21 subcases `Case A` and `Case B, j=0..19` with 288,228 `__int128`-verified IIS Farkas cores in `../code/solve_k6_pos.py` + `../code/gordan_dll.cpp`, paired with Pure Lean 4 `A43`) settle $k = 5, 6$ unconditionally over $\mathbb{R}$.
+   - $n_{\max}(5) = 31$ (`m = 16` UNSAT over $\mathbb{R}$, paired with Pure Lean 4 `A31`) and $n_{\max}(6) = 43$ (`m = 22` UNSAT across all 21 subcases `Case A` and `Case B, j=0..19` via strict-exact `__int128` Farkas + SAT in `../code/solve_k6_pos.py`, `../code/gordan_dll.cpp`, and `../code/k6_pos_solver.cpp`, paired with Pure Lean 4 `A43`) settle $k = 5, 6$ over $\mathbb{R}$.
    - Therefore, $g(44) \ge 7$ holds unconditionally; combined with explicit Pure Lean 4 witnesses `A52..A59` (`proofs/NewWitnessesStandalone.lean`, including `A59` from `InfiniteFamilyStandalone.lean`) showing $M(A_{59}) = 7$, monotonicity proves **$g(n) = 7$ exact for every $n \in [44, 59]$**. In particular, at $n = 58$ and $n = 59$, $g(n) = 7$ refutes the projective closed-form jump to $8$.
 
 2. **Lean-Certified Bounded Corridor ($n \in [60, 100]$):**

@@ -177,8 +177,15 @@ static int simplex_gordan(int m, const vector<Triple>& eqs, const vector<int>& s
     return -1;
 }
 
+#ifdef _WIN32
+#define GORDAN_EXPORT __declspec(dllexport)
+#else
+#define GORDAN_EXPORT __attribute__((visibility("default")))
+#endif
+
 extern "C" {
-__declspec(dllexport) int find_minimal_core(int m, int r, const int* triples_flat, int* out_core_indices) {
+GORDAN_EXPORT int find_minimal_core_exact(int m, int r, const int* triples_flat,
+                                          int* out_core_indices, int64_t* out_Y) {
     if (r <= 0 || m <= 0 || m > 64) return 0;
     vector<Triple> eqs(r);
     vector<int> active(r);
@@ -219,7 +226,10 @@ __declspec(dllexport) int find_minimal_core(int m, int r, const int* triples_fla
     vector<long double> y_fin;
     vector<int64_t> Y_fin;
     if (simplex_gordan(m, eqs, cur, y_fin) == 0 && try_extract_exact_Y(m, eqs, cur, y_fin, Y_fin)) {
-        for (size_t i = 0; i < cur.size(); ++i) out_core_indices[i] = cur[i];
+        for (size_t i = 0; i < cur.size(); ++i) {
+            out_core_indices[i] = cur[i];
+            if (out_Y) out_Y[i] = Y_fin[i];
+        }
         return (int)cur.size();
     }
 
@@ -227,10 +237,18 @@ __declspec(dllexport) int find_minimal_core(int m, int r, const int* triples_fla
     if (try_extract_exact_Y(m, eqs, active, y, Y_raw)) {
         int cnt = 0;
         for (int i = 0; i < r; ++i) {
-            if (Y_raw[i] != 0) out_core_indices[cnt++] = i;
+            if (Y_raw[i] != 0) {
+                out_core_indices[cnt] = i;
+                if (out_Y) out_Y[cnt] = Y_raw[i];
+                ++cnt;
+            }
         }
         return cnt;
     }
     return 0;
+}
+
+GORDAN_EXPORT int find_minimal_core(int m, int r, const int* triples_flat, int* out_core_indices) {
+    return find_minimal_core_exact(m, r, triples_flat, out_core_indices, nullptr);
 }
 }

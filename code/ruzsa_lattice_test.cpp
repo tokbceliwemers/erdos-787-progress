@@ -144,14 +144,14 @@ int main() {
         auto cntZ = ball_counts_dp(d, max_r, false);
         auto cntD = ball_counts_dp(d, max_r, true);
 
-        // Z^d construction with A = U_{i=0}^{L-1} 2^i B_{L-i}(c) plus 2^L B_0(c) = {2^L c}
-        //Wait: WITH 2^L B_0(c), layer L-1 has pairs in B_1(c) sum to 2c in B_0(c), so |S_{L-1}| <= d!
-        // Thus k <= (L - 1) * 2^d + d + 1 (since c in B_0 gives 1 more element, wait 2^L c itself + at most d from B_1)
+        // Z^d construction with A = U_{i=0}^{L-1} 2^i B_{L-i}(c) plus 2^L B_0(c) = {2^L c}.
+        // In B_1(c) = {c, c +- e_j}, antipodal pairs sum to 2c in B_0(c), allowing c plus one
+        // from each pair (d + 1 elements in S_{L-1}) together with 2^L c in S_L: k <= (L-1)*2^d + d + 2.
         uint64_t prefZ = 0, firstZ_k = 0, firstZ_n = 0;
         for (int L = 1; L <= max_r; ++L) {
             prefZ += cntZ[L];
             uint64_t n = prefZ + 1; // +1 for 2^L * c
-            uint64_t k = (uint64_t)(L - 1) * (1ULL << d) + (d + 1);
+            uint64_t k = (uint64_t)(L - 1) * (1ULL << d) + (uint64_t)(d + 2);
             uint64_t quad = k * k + 3 * k - 11;
             if (n > quad && firstZ_k == 0) {
                 firstZ_k = k; firstZ_n = n;
@@ -161,7 +161,7 @@ int main() {
             }
         }
         if (firstZ_k == 0) {
-            uint64_t k = (uint64_t)(max_r - 1) * (1ULL << d) + (d + 1);
+            uint64_t k = (uint64_t)(max_r - 1) * (1ULL << d) + (uint64_t)(d + 2);
             std::cout << "  [Z^d] up to L=" << max_r << " ratio=" << (double)(prefZ+1)/(double)(k*k+3*k-11) << "\n";
         }
 
@@ -203,10 +203,15 @@ int main() {
             for (int t = 0; t < d; ++t) top.x[t] = (1LL << r) * c_pos[t];
             A_shift.push_back(top);
             int alpha = exact_alpha(A_shift);
-            uint64_t k_bound = (uint64_t)(r - 1) * (1ULL << d) + d + 1;
+            uint64_t k_bound = (uint64_t)(r - 1) * (1ULL << d) + (uint64_t)(d + 2);
             std::cout << "d=" << d << " r=" << r << " n=" << A_shift.size()
                       << " EXACT alpha=" << alpha << " (upper bound=" << k_bound
                       << ", quad(exact)=" << (alpha*alpha + 3*alpha - 11) << ")\n" << std::flush;
+            if ((uint64_t)alpha > k_bound) {
+                std::cerr << "ERROR: EXACT alpha=" << alpha << " exceeds k_bound=" << k_bound
+                          << " at d=" << d << " r=" << r << "\n";
+                return 1;
+            }
         }
     }
     return 0;

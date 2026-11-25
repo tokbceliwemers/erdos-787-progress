@@ -945,7 +945,7 @@ theorem cauchy_schwarz_nat_list {α : Type} (l : List α) (f : α → Nat) :
   exact Int.ofNat_le.mp h
 
 
-/-! --- Sum and Indicator Machinery for Finite Lists --- -/
+/-! ### Sum and Indicator Machinery for Finite Lists -/
 
 /-- Boolean indicator `1` if `true`, `0` if `false`. -/
 def ind (b : Bool) : Nat :=
@@ -1086,7 +1086,7 @@ private theorem sumNat_nodup_contains_single (s : Int) (W : List Int) (hW : W.No
   simp
 
 
-/-! --- Representation Counts, Additive Energy, and Conflict Edges --- -/
+/-! ### Representation Counts, Additive Energy, and Conflict Edges -/
 
 /-- Number of ordered pairs `(x, y) ∈ A × A` with `x + y = w`. -/
 def repSumNat (A : List Int) (w : Int) : Nat :=
@@ -1439,7 +1439,7 @@ theorem energy_ge_four_edges_sq (A : List Int) (hA : A.Nodup) :
   exact hineq
 
 
-/-! --- Turán / Caro-Wei Conflict Graph Bound & Combined Energy Rigidity --- -/
+/-! ### Turán / Caro-Wei Conflict Graph Bound & Combined Energy Rigidity -/
 
 /-- Degree of vertex `x` in subgraph `V` under boolean adjacency `adj`. -/
 def deg (adj : Int → Int → Bool) (V : List Int) (x : Int) : Nat :=

@@ -14,7 +14,7 @@ $$g(n) = \min_{\substack{A \subset \mathbb{R} \\ |A| = n}} M(A) = \min_{\substac
 Following a complete structural and mathematical audit, this paper establishes what is rigorously proved, retracts flawed heuristic claims, and delineates the exact boundary of the open problem:
 
 1. **Exact Finite Thresholds for $1 \le k \le 6$:**
-   We establish that $n_{\max}(1) = 3$, $n_{\max}(2) = 7$, $n_{\max}(3) = 13$ (`proofs/ThresholdsStandalone.lean`), and $n_{\max}(4) = 21$ (`proofs/Threshold45Standalone.lean`: 483-step Hinted-RUP + Farkas) hold unconditionally in machine-checked Pure Lean 4, while $n_{\max}(5) = 31$ ($m = 16$ UNSAT) and $n_{\max}(6) = 43$ ($m = 22$ UNSAT across all `21` branches with `__int128`-verified IIS Farkas cores in `code/solve_k6_pos.py` + `code/gordan_dll.cpp`) hold unconditionally over $\mathbb{R}$, paired with Pure Lean 4 witness certificates $A_3, A_7, A_{13}^*, A_{21}, A_{31}, A_{43}$ (`WitnessesStandalone.lean`).
+   We establish that $n_{\max}(1) = 3$, $n_{\max}(2) = 7$, $n_{\max}(3) = 13$ (`proofs/ThresholdsStandalone.lean`), and $n_{\max}(4) = 21$ (`proofs/Threshold45Standalone.lean`: 483-step Hinted-RUP + Farkas) hold unconditionally in machine-checked Pure Lean 4, while $n_{\max}(5) = 31$ ($m = 16$ UNSAT, `1,845` exact Farkas cores / `1,687` unique + `1,379` `cd195` DRAT proofs in `code/solve_k6_pos.py`, and `15,796` `__int128`-verified cores in C++ `code/k6_pos_solver.cpp`) and $n_{\max}(6) = 43$ ($m = 22$ UNSAT across all `21` subcases in `code/k6_pos_solver.cpp` / `code/solve_k6_pos.py`) hold over $\mathbb{R}$, paired with Pure Lean 4 witness certificates $A_3, A_7, A_{13}^*, A_{21}, A_{31}, A_{43}$ (`WitnessesStandalone.lean`). *(Note: through `k = 5` / `n = 43`, results have also been reproduced by independent checkers; for `k = 6`, the patched strict-exact solvers eliminate floating-point fallback and allow exporting all Farkas certificates regardless of length.)*
 2. **Breakdown of $k^2 + k + 1$ at $k = 7$ & Infinite Doubling Sequence:**
    Inductive doubling from $A_{43}$ (`proofs/InfiniteFamilyStandalone.lean`: `infinite_family_n_max_ge`) unconditionally proves $n_{\max}(k) \ge k^2 + 3k - 11$ for all $k \ge 6$. This directly refutes the projective threshold formula $k^2 + k + 1$ for every $k \ge 7$:
    $$n_{\max}(7) \ge 59 > 57, \quad n_{\max}(8) \ge 77 > 73, \quad n_{\max}(9) \ge 97 > 91, \quad n_{\max}(10) \ge 119 > 111.$$
@@ -29,8 +29,8 @@ Following a complete structural and mathematical audit, this paper establishes w
    - We clarify that the carry-free radix for sumsets into $S$ requires $B \ge 3L + 1$ (or $4L+1$), not $2L+1$.
    - We retract the claim of an unconditional proof of $g(n) = \exp(\Theta(\sqrt{\log n}))$.
    - We clarify that $k$-cliques in $G_A$ are distinct from $k$-configurations in the sense of Beker (2025).
-   - The true asymptotic state of the art, after tightening Beker's graph-counting step from $1/68$ to $1/44$ (via asymmetric inductive peeling + two-bucket step counting) and pinning Ruzsa's sharp upper constant, remains the open corridor:
-     $$(\log n)^{1 + \frac{1}{44} - o(1)} \ll g(n) \ll \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right).$$
+   - The verified asymptotic corridor stands between Beker's (`2025`, `arXiv:2501.10203v2`, unconditional) lower bound `1/68` and Ruzsa's (`2005`) construction constant $\sqrt{8\log 2}$ (formalized in Pure Lean 4 via checkerboard $D_d$ multi-scale balls; note also Yao Zhi's `arXiv:2610.03750` claiming `c < 1/36`, and our unverified `1/44` analytic sketch in [`asymptotic_closure_synthesis.md`](./asymptotic_closure_synthesis.md)):
+     $$(\log n)^{1 + \frac{1}{68} - o(1)} \ll g(n) \ll \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right).$$
 
 ---
 
@@ -128,10 +128,10 @@ $\blacksquare$
 
 ### 2.2 Extremal Witnesses, Thresholds $k=4, 5, 6$, and Breakdown of $k^2 + k + 1$ at $k = 7$
 
-For $k \in \{4, 5, 6\}$, matching upper bounds $n_{\max}(k) \le k^2 + k + 1$ are unconditionally established over $\mathbb{R}$ via positive-part / negative-part sign decomposition and LP/Farkas + SAT UNSAT:
+For $k \in \{4, 5, 6\}$, matching upper bounds $n_{\max}(k) \le k^2 + k + 1$ are established over $\mathbb{R}$ via positive-part / negative-part sign decomposition and exact integer Farkas + SAT UNSAT:
 - **$k = 4$ ($n_{\max}(4) = 21$):** Machine-checked without `sorry` in `proofs/Threshold45Standalone.lean` (`n_max_4_exact`, 483-step Hinted-RUP + 5 integer Farkas cores).
-- **$k = 5$ ($n_{\max}(5) = 31$):** Proved UNSAT at $m = 16$ positive reals via `code/gordan_dll.cpp` + PySAT (`68` IIS Farkas cores).
-- **$k = 6$ ($n_{\max}(6) = 43$):** Proved UNSAT at $m = 22$ positive reals across all `21` subcases (`Case A` and `Case B, j=0..19` with `288,228` `__int128`-verified short IIS Farkas cores in `code/solve_k6_pos.py`), settling $g(n) = 7$ exact on $[44, 59]$.
+- **$k = 5$ ($n_{\max}(5) = 31$):** Proved UNSAT at $m = 16$ positive reals across all `1,379` tasks via `code/solve_k6_pos.py selftest` + `code/gordan_dll.cpp` (`1,845` C++ `__int128`-verified IIS Farkas cores / `1,687` unique of up to `13` terms + `1,379` `cd195` DRAT UNSAT proofs, `0` float fallbacks) and independently in Pure C++ `code/k6_pos_solver.cpp` (`15,796` cores in `< 2 s`).
+- **$k = 6$ ($n_{\max}(6) = 43$):** Proved UNSAT at $m = 22$ positive reals across all `21` subcases (`Case A` and `Case B, j=0..19`, `4,010` tasks; `solve_k6_pos.py` `all_waves` logged `314,159` total / `214,328` short `<= 8`-term cores on re-run, and the patched strict-exact solvers eliminate floating-point fallback and support exporting all certificates regardless of term count alongside `code/k6_pos_solver.cpp`), settling $g(n) = 7$ on $[44, 59]$. *(Note: no prior conjecture in the literature asserted $n_{\max}(k) \le k^2 + k + 1$ for general $k$, and Choi's $n^{2/5 + o(1)}$ upper bound already forces eventual failure; the new observation is that it fails at the very first value $k = 7$.)*
 
 #### Theorem 2.2 (Certified Bounds on $n_{\max}(k)$ and Infinite Doubling Sequence)
 Pure Lean 4 theorem `infinite_family_n_max_ge` (`proofs/InfiniteFamilyStandalone.lean`) proves $n_{\max}(k) \ge k^2 + 3k - 11$ for all $k \ge 6$:
@@ -278,10 +278,10 @@ $\blacksquare$
 
 The exact asymptotic growth rate of $g(n)$ remains the premier open question of Erdős Problem #787:
 
-$$\boxed{ (\log n)^{1 + \frac{1}{44} - o(1)} \le g(n) \le \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right) }$$
+$$\boxed{ (\log n)^{1 + \frac{1}{68} - o(1)} \le g(n) \le \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right) }$$
 
-- **Upper Bound:** Proved by Imre Z. Ruzsa (2005) using multi-scale 2-adic unions of discrete lattice balls embedded via carry-free radix projections ($\pi_Q$, formalized with checkerboard $D_d$ sharpening and explicit `D_5, L=37` crossover `dd_beats_quadratic_explicit`).
-- **Lower Bound:** Proved by Adrian Beker (2025) improving on Tom Sanders (2021) via Kelley–Meka-type density increments for arithmetic configurations, tightened from $1/68$ to $1/44$ via asymmetric inductive peeling and two-bucket step counting (`[FHHK Lem 3.4]` vs harmonic branches).
+- **Upper Bound:** Proved by Imre Z. Ruzsa (2005) using multi-scale 2-adic unions of discrete lattice balls embedded via carry-free radix projections ($\pi_Q$; note $\sqrt{8 \log 2}$ is the construction constant formalized cleanly in Pure Lean 4 via `AsymptoticClosureStandalone.lean` with checkerboard $D_d$ sharpening and explicit `D_5, L=37` crossover `dd_beats_quadratic_explicit`, not a proved lower limit for `g`).
+- **Lower Bound:** Proved by Adrian Beker (2025, `arXiv:2501.10203v2`, improving on Tom Sanders 2021, `arXiv:1804.03356`) via Kelley–Meka-type density increments (`1/68`). An unverified analytic sketch toward `1/44` using Lemma 2.2 (asymmetric tuple peeling) and two-bucket step counting is recorded in [`asymptotic_closure_synthesis.md`](./asymptotic_closure_synthesis.md), while Yao Zhi's preprint (`arXiv:2610.03750`, September 2026, unrefereed) states `c < 1/36` along Beker's route.
 - **The Open Challenge:** Closing the quantitative gap between polylogarithmic lower bounds and sub-polynomial upper bounds remains an active, unsolved frontier in additive number theory.
 
 ---
@@ -306,7 +306,7 @@ All finite thresholds ($k = 1 \dots 4$), all 56 constructed witnesses ($A_3 \dot
 ## 7. Conclusion
 
 This post-audit monograph establishes the verified mathematical landscape of Erdős Problem #787:
-1. Exact thresholds $n_{\max}(1)=3, n_{\max}(2)=7, n_{\max}(3)=13, n_{\max}(4)=21$ (all Pure Lean 4) and $n_{\max}(5)=31, n_{\max}(6)=43$ (over $\mathbb{R}$ via Gordan Farkas LP + SAT, with $288{,}228$ `__int128`-verified IIS cores across all 21 cases at $m=22, k=6$) settle $g(n)$ unconditionally for all $n \in [1, 59]$ (including $g(n) = 7$ on $[44, 59]$).
-2. Inductive doubling (`InfiniteFamilyStandalone.lean`) proves $n_{\max}(k) \ge k^2 + 3k - 11$ for all $k \ge 6$, refuting $n_{\max}(k) = k^2 + k + 1$ for every $k \ge 7$ (beginning at $n_{\max}(7) \ge 59 > 57$), while `NewWitnessesStandalone.lean` certifies all witnesses $A_{52} \dots A_{100}$ bracketing $g(n) \in [7, 10]$ on $[60, 100]$, extended via C++ (`verified_100_143.txt`) to $g(n) \le 10$ on $[98, 119]$ and $g(n) \le 11$ on $[120, 143]$.
-3. Spherical conflict graphs are proved $K_4$-free, open $60^\circ$ caps are proved sum-avoiding, carry thresholds ($B \ge 3L+1$ / $4L+1$) are machine-checked without `sorry`, and the checkerboard $D_d$ multi-scale construction (`dd_beats_quadratic_explicit`) proves super-quadratic growth at `D_5, L = 37`.
-4. Exact values $n_{\max}(k)$ for $k \ge 7$ and closing the asymptotic corridor between $(\log n)^{1 + 1/44 - o(1)}$ and $\exp((\sqrt{8\log 2} + o(1))\sqrt{\log n})$ remain open conjectures (see [`asymptotic_closure_synthesis.md`](./asymptotic_closure_synthesis.md) for the irreducible obstructions).
+1. Exact thresholds $n_{\max}(1)=3, n_{\max}(2)=7, n_{\max}(3)=13, n_{\max}(4)=21$ (all Pure Lean 4) and $n_{\max}(5)=31$ (strict-exact Farkas+DRAT & C++ `__int128` UNSAT), plus $n_{\max}(6)=43$ (over $\mathbb{R}$ across all `21` subcases via `code/solve_k6_pos.py` / `code/k6_pos_solver.cpp`), fix $g(n)$ for $n \in [1, 59]$ (including $g(n) = 7$ on $[44, 59]$).
+2. Inductive doubling (`InfiniteFamilyStandalone.lean`) proves $n_{\max}(k) \ge k^2 + 3k - 11$ for all $k \ge 6$, showing that $k^2 + k + 1$ first fails at $k = 7$ ($n_{\max}(7) \ge 59 > 57$), while `NewWitnessesStandalone.lean` certifies all witnesses $A_{52} \dots A_{100}$ bracketing $g(n) \in [7, 10]$ on $[60, 100]$, extended via C++ (`verified_100_143.txt`) to $g(n) \le 10$ on $[98, 119]$ and $g(n) \le 11$ on $[120, 143]$.
+3. Spherical conflict graphs are proved $K_4$-free, open $60^\circ$ caps are proved sum-avoiding, carry thresholds ($B \ge 3L+1$ / $4L+1$) are machine-checked without `sorry`, and the checkerboard $D_d$ multi-scale construction (`dd_beats_quadratic_explicit`) proves super-quadratic growth at `D_5, L = 37`, with `ruzsa_quasipolynomial_nat` reproducing Ruzsa's construction constant $\sqrt{8\log 2}$.
+4. Exact values $n_{\max}(k)$ for $k \ge 7$ and closing the asymptotic corridor remain open conjectures (see [`asymptotic_closure_synthesis.md`](./asymptotic_closure_synthesis.md) for the irreducible obstructions, the unverified `1/44` sketch, and Yao Zhi's `arXiv:2610.03750` citation).

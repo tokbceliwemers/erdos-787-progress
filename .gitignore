@@ -3,12 +3,15 @@ __pycache__/
 *.pyo
 *.exe
 *.dll
+*.so
+*.dylib
 *.o
 *.obj
 *.olean
 *.ilean
 *.trace
 *.log
+*.drat
 _build/
 build/
 tmp/

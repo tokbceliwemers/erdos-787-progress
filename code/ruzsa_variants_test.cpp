@@ -123,6 +123,11 @@ int main() {
                 std::cout << "D_" << d << " L=" << L << " n=" << A.size()
                           << " EXACT alpha=" << alpha << " bound=" << bound
                           << " (L*2^d=" << l2d << ")\n" << std::flush;
+                if (alpha > bound) {
+                    std::cerr << "ERROR: D_" << d << " L=" << L << " alpha=" << alpha
+                              << " exceeds bound=" << bound << "\n";
+                    return 1;
+                }
             }
         }
     }

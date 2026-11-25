@@ -3,10 +3,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <omp.h>
+#include <set>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -226,10 +228,11 @@ static int simplex_gordan(int m, const vector<Triple>& eqs, const vector<int>& s
 }
 
 // Finds an irreducible infeasible subset of active_eq_indices, verified by exact __int128 arithmetic.
-// Returns true if infeasible (with minimal core indices in core_indices), false if feasible.
+// Returns true if infeasible (with minimal core indices in core_indices and exact weights in out_Y).
 static bool gordan_minimal_core(int m, const vector<Triple>& all_eqs,
                                 const vector<int>& active_eqs,
-                                vector<int>& out_core_indices) {
+                                vector<int>& out_core_indices,
+                                vector<int64_t>* out_Y = nullptr) {
     vector<long double> y;
     int status = simplex_gordan(m, all_eqs, active_eqs, y);
     if (status == 1) return false;
@@ -274,14 +277,19 @@ static bool gordan_minimal_core(int m, const vector<Triple>& all_eqs,
     if (simplex_gordan(m, all_eqs, cur, y_fin) == 0 &&
         try_extract_exact_Y(m, all_eqs, cur, y_fin, Y_fin)) {
         out_core_indices = std::move(cur);
+        if (out_Y) *out_Y = std::move(Y_fin);
         return true;
     }
     // Fallback to raw active_eqs if shrinking lost exactness
     vector<int64_t> Y_raw;
     if (try_extract_exact_Y(m, all_eqs, active_eqs, y, Y_raw)) {
         out_core_indices.clear();
+        if (out_Y) out_Y->clear();
         for (size_t i = 0; i < active_eqs.size(); ++i) {
-            if (Y_raw[i] != 0) out_core_indices.push_back(active_eqs[i]);
+            if (Y_raw[i] != 0) {
+                out_core_indices.push_back(active_eqs[i]);
+                if (out_Y) out_Y->push_back(Y_raw[i]);
+            }
         }
         return !out_core_indices.empty();
     }
@@ -322,6 +330,26 @@ struct CDCLSolver {
     uint64_t conflicts = 0;
     uint64_t lp_calls = 0;
     uint64_t lp_cores = 0;
+    bool record_certs = false;
+    vector<pair<vector<Triple>, vector<int64_t>>> exported_certs;
+
+    void log_cert(const vector<int>& core, const vector<int64_t>& weights) {
+        if (!record_certs) return;
+        vector<pair<tuple<int, int, int>, int64_t>> pairs;
+        pairs.reserve(core.size());
+        for (size_t i = 0; i < core.size(); ++i) {
+            const Triple& tr = eq_triples[core[i]];
+            pairs.push_back({{tr.i, tr.j, tr.l}, weights[i]});
+        }
+        sort(pairs.begin(), pairs.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        vector<Triple> ts; vector<int64_t> ys;
+        ts.reserve(pairs.size()); ys.reserve(pairs.size());
+        for (const auto& p : pairs) {
+            ts.push_back({get<0>(p.first), get<1>(p.first), get<2>(p.first)});
+            ys.push_back(p.second);
+        }
+        exported_certs.push_back({std::move(ts), std::move(ys)});
+    }
 
     void init(int nv, int m_in) {
         nvars = nv;
@@ -566,9 +594,11 @@ struct CDCLSolver {
         // Initial LP check at level 0
         if (!eq_trail.empty()) {
             vector<int> core;
+            vector<int64_t> cy;
             ++lp_calls;
-            if (gordan_minimal_core(m, eq_triples, eq_trail, core)) {
+            if (gordan_minimal_core(m, eq_triples, eq_trail, core, record_certs ? &cy : nullptr)) {
                 ++lp_cores;
+                log_cert(core, cy);
                 return 0;
             }
             last_lp_eq_size = eq_trail.size();
@@ -601,8 +631,10 @@ struct CDCLSolver {
                 last_lp_eq_size = eq_trail.size();
                 ++lp_calls;
                 vector<int> core;
-                if (gordan_minimal_core(m, eq_triples, eq_trail, core)) {
+                vector<int64_t> cy;
+                if (gordan_minimal_core(m, eq_triples, eq_trail, core, record_certs ? &cy : nullptr)) {
                     ++lp_cores;
+                    log_cert(core, cy);
                     ++conflicts;
                     vector<int> t_clause;
                     t_clause.reserve(core.size());
@@ -664,9 +696,11 @@ struct CDCLSolver {
             if (next_v == -1) {
                 // Full assignment! Verify Gordan one final time cleanly!
                 vector<int> core;
+                vector<int64_t> cy;
                 ++lp_calls;
-                if (gordan_minimal_core(m, eq_triples, eq_trail, core)) {
+                if (gordan_minimal_core(m, eq_triples, eq_trail, core, record_certs ? &cy : nullptr)) {
                     ++lp_cores;
+                    log_cert(core, cy);
                     if (declvl() == 0) return 0;
                     // Should have been caught above, but handle cleanly:
                     vector<int> t_clause;
@@ -724,9 +758,10 @@ struct RunResult {
     uint64_t lp_calls = 0;
     uint64_t lp_cores = 0;
     vector<Triple> sat_eqs;
+    vector<pair<vector<Triple>, vector<int64_t>>> exported_certs;
 };
 
-static RunResult solve_task(const SolverTask& t) {
+static RunResult solve_task(const SolverTask& t, bool record_certs = false) {
     int m = t.m;
     int k = t.k;
     int ntriples = m * (m - 1) * (m - 2) / 6;
@@ -757,6 +792,7 @@ static RunResult solve_task(const SolverTask& t) {
 
     int total_vars = 3 * ntriples + nedges;
     CDCLSolver sat;
+    sat.record_certs = record_certs;
     sat.init(total_vars, m);
     sat.eq_triples = triples;
     sat.eq_to_var.resize(ntriples);
@@ -905,6 +941,7 @@ static RunResult solve_task(const SolverTask& t) {
     res.conflicts = sat.conflicts;
     res.lp_calls = sat.lp_calls;
     res.lp_cores = sat.lp_cores;
+    if (record_certs) res.exported_certs = std::move(sat.exported_certs);
     return res;
 }
 
@@ -926,9 +963,10 @@ static vector<SolverTask> build_tasks(int m, int k, const vector<int>& j_list) {
     return tasks;
 }
 
-static bool run_suite(int m, int k, const vector<int>& j_list) {
+static bool run_suite(int m, int k, const vector<int>& j_list, const string& export_path = "") {
     auto tasks = build_tasks(m, k, j_list);
     int N = (int)tasks.size();
+    bool do_export = !export_path.empty();
     cout << "m=" << m << ", k=" << k << " [C++ CDCL(T)]: Running " << N
          << " tasks across " << omp_get_max_threads() << " threads..." << endl;
     auto t0 = chrono::steady_clock::now();
@@ -938,6 +976,7 @@ static bool run_suite(int m, int k, const vector<int>& j_list) {
     bool any_sat = false;
     SolverTask sat_task;
     vector<Triple> sat_eqs;
+    vector<pair<vector<Triple>, vector<int64_t>>> all_certs;
 
     #pragma omp parallel for schedule(dynamic, 1)
     for (int idx = 0; idx < N; ++idx) {
@@ -946,7 +985,7 @@ static bool run_suite(int m, int k, const vector<int>& j_list) {
         abort_flag = any_sat;
         if (abort_flag) continue;
 
-        RunResult r = solve_task(tasks[idx]);
+        RunResult r = solve_task(tasks[idx], do_export);
 
         #pragma omp critical
         {
@@ -954,6 +993,9 @@ static bool run_suite(int m, int k, const vector<int>& j_list) {
             tot_conf += r.conflicts;
             tot_lp += r.lp_calls;
             tot_cores += r.lp_cores;
+            if (do_export) {
+                for (auto& c : r.exported_certs) all_certs.push_back(std::move(c));
+            }
             if (r.status == 1 && !any_sat) {
                 any_sat = true;
                 sat_task = tasks[idx];
@@ -978,31 +1020,90 @@ static bool run_suite(int m, int k, const vector<int>& j_list) {
         cout << endl;
         return false;
     }
+
+    size_t unique_count = 0, max_terms = 0, gt8_terms = 0;
+    if (do_export) {
+        auto triple_lt = [](const Triple& a, const Triple& b) {
+            return tie(a.i, a.j, a.l) < tie(b.i, b.j, b.l);
+        };
+        auto vec_lt = [&](const pair<vector<Triple>, vector<int64_t>>& a,
+                          const pair<vector<Triple>, vector<int64_t>>& b) {
+            if (a.first.size() != b.first.size()) return a.first.size() < b.first.size();
+            return lexicographical_compare(a.first.begin(), a.first.end(),
+                                           b.first.begin(), b.first.end(), triple_lt);
+        };
+        sort(all_certs.begin(), all_certs.end(), vec_lt);
+        ofstream fout(export_path, ios::app);
+        if (!fout) {
+            cerr << "ERROR: Failed to open export file: " << export_path << endl;
+            return false;
+        }
+        const vector<Triple>* prev = nullptr;
+        for (const auto& kv : all_certs) {
+            if (prev && kv.first.size() == prev->size() &&
+                equal(kv.first.begin(), kv.first.end(), prev->begin(),
+                      [](const Triple& a, const Triple& b) { return a.i == b.i && a.j == b.j && a.l == b.l; })) {
+                continue;
+            }
+            prev = &kv.first;
+            unique_count++;
+            if (kv.first.size() > max_terms) max_terms = kv.first.size();
+            if (kv.first.size() > 8) gt8_terms++;
+            fout << "{\"m\":" << m << ",\"k\":" << k << ",\"triples\":[";
+            for (size_t q = 0; q < kv.first.size(); ++q) {
+                if (q) fout << ",";
+                fout << "[" << kv.first[q].i << "," << kv.first[q].j << "," << kv.first[q].l << "]";
+            }
+            fout << "],\"weights\":[";
+            for (size_t q = 0; q < kv.second.size(); ++q) {
+                if (q) fout << ",";
+                fout << kv.second[q];
+            }
+            fout << "]}\n";
+        }
+    }
+
     cout << "ALL " << N << " TASKS FOR m=" << m << ", k=" << k
          << " PROVEN UNSAT (100% __int128 verified) in " << fixed << setprecision(2)
-         << wall << "s (tot_cores=" << tot_cores << ", lp_calls=" << tot_lp << ")!" << endl;
+         << wall << "s (tot_cores=" << tot_cores << ", lp_calls=" << tot_lp;
+    if (do_export) {
+        cout << ", unique_exported=" << unique_count << ", max_terms=" << max_terms << ", gt8_terms=" << gt8_terms;
+    }
+    cout << ")!" << endl;
     return true;
 }
 
 int main(int argc, char** argv) {
-    string cmd = (argc > 1) ? argv[1] : "selftest";
+    string cmd = "selftest";
+    string export_path = "";
+    for (int i = 1; i < argc; ++i) {
+        string a = argv[i];
+        if (a == "--export-certs" && i + 1 < argc) {
+            export_path = argv[++i];
+        } else {
+            cmd = a;
+        }
+    }
+    if (!export_path.empty()) {
+        ofstream clear_out(export_path, ios::trunc);
+    }
     if (cmd == "selftest") {
         vector<int> j4 = {-1};
         for (int i = 0; i < 9; ++i) j4.push_back(i);
-        if (!run_suite(11, 4, j4)) return 1;
+        if (!run_suite(11, 4, j4, export_path)) return 1;
         vector<int> j5 = {-1};
         for (int i = 0; i < 14; ++i) j5.push_back(i);
-        if (!run_suite(16, 5, j5)) return 1;
+        if (!run_suite(16, 5, j5, export_path)) return 1;
     } else if (cmd == "caseA") {
-        if (!run_suite(22, 6, {-1})) return 1;
+        if (!run_suite(22, 6, {-1}, export_path)) return 1;
     } else if (cmd == "caseB") {
         vector<int> j6;
         for (int i = 0; i < 20; ++i) j6.push_back(i);
-        if (!run_suite(22, 6, j6)) return 1;
+        if (!run_suite(22, 6, j6, export_path)) return 1;
     } else if (cmd == "all") {
         vector<int> j6 = {-1};
         for (int i = 0; i < 20; ++i) j6.push_back(i);
-        if (!run_suite(22, 6, j6)) return 1;
+        if (!run_suite(22, 6, j6, export_path)) return 1;
     } else {
         vector<int> j6;
         stringstream ss(cmd);
@@ -1011,7 +1112,7 @@ int main(int argc, char** argv) {
             if (tok == "None" || tok == "-1") j6.push_back(-1);
             else j6.push_back(stoi(tok));
         }
-        if (!run_suite(22, 6, j6)) return 1;
+        if (!run_suite(22, 6, j6, export_path)) return 1;
     }
     return 0;
 }

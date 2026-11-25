@@ -6,48 +6,67 @@ This report synthesizes the mathematical advances, Lean 4 formalizations, C++ co
 
 ## 1. Executive Summary: State of the Art
 
-Following a complete line-by-line audit and tightening of the additive-combinatorial lower bound (Beker 2025) and a full reconstruction and sublattice sharpening of Ruzsa's (2005) upper-bound construction, the verified unconditional asymptotic corridor stands at:
+Following a post-review mathematical and computational audit, this note separates **rigorously verified finite/structural results** from an **analytic lower-bound sketch** for Erdős Problem #787 (`M(n)` / `g(n)`):
 
-$$\boxed{(\log n)^{1 + \frac{1}{44} - o(1)} \;\le\; g(n) \;\le\; \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right)}$$
+- **Verified Unconditional Asymptotic Bounds:**
+  $$\boxed{(\log n)^{1 + \frac{1}{68} - o(1)} \;\le\; g(n) \;\le\; \exp\left((\sqrt{8 \log 2} + o(1)) \sqrt{\log n}\right)}$$
+  where the lower bound `c < 1/68` is due to Beker (`2025`, `arXiv:2501.10203v2`, improving Sanders `2021`, `arXiv:1804.03356`), and the upper-bound construction constant $\sqrt{8 \log 2}$ is due to Ruzsa (`2005`), formalized here in Pure Lean 4 via checkerboard $D_d$ multi-scale balls (`AsymptoticClosureStandalone.lean`). *(Note: two months prior to this repository, Yao Zhi's unrefereed preprint `arXiv:2610.03750` claims every $c < 1/36$ along Beker's route.)*
+- **Analytic Sketch Highlighted Below (`1/68 -> 1/44`, Unverified):** Section 2 states and proves an **Asymmetric Bipartite Tuple Peeling Lemma** cleanly, then traces a candidate exponent improvement from `1/68` down to `1/44` inside Beker's (`2025`) density-increment framework (`unverified` as a complete formal proof, and superseded in exponent by Yao Zhi's `1/36` claim).
 
-Equivalently, in terms of the inverse extremal function $n_{\max}(k)$ (the threshold below which a $k$-sum-avoiding set may fail to contain an $(k+1)$-sum-avoiding subset, or equivalently the maximum size of a set with maximum sum-avoiding subset $< k$):
+Equivalently, under Beker's unconditional `1/68` bound vs. Ruzsa's `2005` construction constant, the inverse threshold $n_{\max}(k) = \max\{|A| : M(A) \le k\}$ satisfies $\exp\!\left(\left(\frac{1}{8\log 2} - o(1)\right)(\log k)^2\right) \le n_{\max}(k) \le \exp(k^{68/69 + o(1)})$.
 
-$$\boxed{\exp\left(\left(\frac{1}{8 \log 2} - o(1)\right) (\log k)^2\right) \;\le\; n_{\max}(k) \;\le\; \exp\left(k^{\frac{44}{45} + o(1)}\right)}$$
-
-**Summary of New Contributions Established Here:**
-1. **Unconditional Lower-Bound Exponent Improvement (`1/68` to `1/44`):** Replacing the symmetric bipartite graph-counting lemma (`[FHHK Cor 2.3]`) in Case (i) of Beker's `thm:graph_counting` with a direct asymmetric inductive peeling lemma preserves the smaller part's density $\mu(T) \ge \alpha_0^2$ in `Subcase B` (`r = 2`), eliminating 18 powers of $k$ in the dimension loss exponent $b$ (`46 -> 28`) and 5 powers of $k$ in the width loss exponent $c$ (`6 -> 1`), dropping $E_k$ from `68` to `45`. Furthermore, separating `[FHHK Lem 3.4]` scale-uniformity steps ($t \le t_L + t_H \ll k^5\mathcal{L}(\alpha)$, which add **$\Delta_r = \emptyset$**) from the harmonic/graph-counting branches ($|H| \ll k^4\mathcal{L}(\alpha)$, all achieving $1 + \Omega(k^{-4})$) restricts the non-empty frequency sum in `thm:general_groups` to $r \in H$, reducing $d_t$ from $k^{38}$ to $k^{37}$ and yielding **$E_k = 1 + 37 + 6 = 44$**, proving $\phi(n) \ge (\log n)^{1 + c}$ for any $c \in (0, 1/44)$ (e.g. $c = 1/45$) and $g(n) \ge (\log n)^{1 + 1/44 - o(1)}$.
-2. **Correction, Checkerboard $D_d$ Lean Formalization, and Lattice Sharpening of Ruzsa's Construction:** Refutes the widespread workspace claim that Ruzsa's upper bound uses a *single* Euclidean sphere (every finite zero-free sphere $S \subset \mathbb{R}^d$ admits an independent set of size $|S|/2^d$ across orthants). Ruzsa's actual construction is a **multi-scale 2-adic union of discrete lattice balls** $A = \bigcup_{i=0}^{r} 2^i (B_{r-i}(c) \cap \Lambda)$ embedded carry-free into $\mathbb{Z}_+$. Replacing $\Lambda = \mathbb{Z}^d$ with the checkerboard sublattice $D_d = \{x \in \mathbb{Z}^d : \sum x_j \equiv 0 \pmod 2\}$ halves coset overhead per squared-norm drop (`norm drop >= 2` while retaining $|D_d / 2D_d| = 2^d$ cosets), beating $k^2 + 3k - 11$ unconditionally in Lean 4 at $d = 5, L = 37$ ($k \le 1185$, $n = 1{,}438{,}294 > 1{,}407{,}769$; theorem `dd_beats_quadratic_explicit`), and in tight C++ analysis already at $D_5, L = 36$ ($k \le 1142$, $n = 1{,}309{,}341 > 1{,}307{,}579$). Moreover, `ruzsa_quasipolynomial_nat` (`d=2m, t=2^m`) attains the sharp asymptotic constant $C = \sqrt{8\log 2} \approx 2.3548$, while even unimodular lattices $E_8$ (`L=16, k<=4097`) and Leech $\Lambda_{24}$ (`L=10`, $2.111\times$ quadratic) and zero-centered $D_d$ (`2^d-1` cosets per layer) sharpen small-$L$ efficiency. Dual-verified witnesses are also extended to all $n \in [100, 143]$ in [`../data/verified_100_143.txt`](../data/verified_100_143.txt) ($\alpha \le 10$ on $[98, 119]$, $\alpha \le 11$ on $[120, 143]$).
+**Summary of Contributions Documented Here:**
+1. **Asymmetric Bipartite Peeling Lemma (Verified Combinatorial Reduction) & `1/68 -> 1/44` Exponent Trace (Unverified Analytic Sketch):** Lemma 2.2 gives a self-contained proof reducing symmetric bipartite graph counting (`[FHHK Cor 2.3]`) to asymmetric tuple peeling preserving the smaller part's density $\mu_Y(T) \ge \alpha_0^r$ (in `Subcase B`, $r = 2$: $\mu_{B^{(j)}}(T) \ge (\alpha/2)^3$). Tracing this inside Beker's (`arXiv:2501.10203v2`) `lm:main_technical_lemma` (`b: 46 -> 28`, `c: 6 -> 1`) paired with separating zero-frequency `[FHHK Lem 3.4]` scale-uniformity steps ($\Delta_r = \emptyset$) from harmonic/graph-counting branches in `thm:general_groups` yields an analytic parameter trace to $E_k = 1 + (5 + 4 + 28) + (5 + 1) = 44$. Because full integration with `[FHHK Lem 3.4]` and Bohr localization inside Beker's proof has not been written out and audited line-by-line, **`1/44` remains an unverified sketch** (and Yao Zhi `arXiv:2610.03750` independently claims $c < 1/36$).
+2. **Correction, Checkerboard $D_d$ Lean Formalization, and Lattice Sharpening of Ruzsa (2005):** Refutes the claim that a *single* Euclidean sphere can give sub-polynomial $\alpha(G_S)$ (every finite zero-free equal-norm subset $S \subset \mathbb{R}^d$ satisfies $\alpha(G_S) \ge |S|/2^d$ across orthants). Ruzsa's (`2005`) construction uses a **multi-scale 2-adic union of discrete lattice balls** $A = \bigcup_{i=0}^{r} 2^i (B_{r-i}(c) \cap \Lambda)$ embedded carry-free into $\mathbb{Z}_+$, yielding $g(n) \le \exp((\sqrt{8\log 2}+o(1))\sqrt{\log n})$ along a subsequence (`this is Ruzsa's construction constant, not a proved lower limit on g`). Replacing $\Lambda = \mathbb{Z}^d$ with the checkerboard sublattice $D_d = \{x \in \mathbb{Z}^d : \sum x_j \equiv 0 \pmod 2\}$ halves coset overhead per squared-norm drop (`norm drop >= 2` while retaining $|D_d / 2D_d| = 2^d$ cosets), beating $k^2 + 3k - 11$ unconditionally in Pure Lean 4 at $d = 5, L = 37$ ($k \le 1185$, $n = 1{,}438{,}294 > 1{,}407{,}769$; `dd_beats_quadratic_explicit`), and in tight C++ analysis already at $D_5, L = 36$ ($k \le 1142$, $n = 1{,}309{,}341 > 1{,}307{,}579$). Moreover, `ruzsa_quasipolynomial_nat` (`d=2m, t=2^m`) attains Ruzsa's asymptotic constant $C = \sqrt{8\log 2} \approx 2.3548$, while even unimodular lattices $E_8$ (`L=16, k<=4097`) and Leech $\Lambda_{24}$ (`L=10`, $2.111\times$ quadratic) and zero-centered $D_d$ (`2^d-1` cosets per layer) sharpen small-$L$ efficiency. Dual-verified witnesses are also extended to all $n \in [100, 143]$ in [`../data/verified_100_143.txt`](../data/verified_100_143.txt) ($\alpha \le 10$ on $[98, 119]$, $\alpha \le 11$ on $[120, 143]$).
 3. **Zero-`sorry` Pure Lean 4 Formalization:** All structural lemmas, dyadic shell cascades, single-sphere orthant lower bounds, full checkerboard $D_d$ multi-scale construction (`ddIntSet`, `ddVecs_sum_avoiding_bound`, `dd_beats_quadratic_explicit` for $D_5, L=37$), and sharp quasipolynomial scaling (`ruzsa_quasipolynomial_nat`) are formally proved in [`AsymptoticClosureStandalone.lean`](../proofs/AsymptoticClosureStandalone.lean) (`2,957` lines) using only `Init` (standard axioms `[propext, Classical.choice, Quot.sound]`).
-4. **Irreducible Barrier Map:** Proves mathematically why a complete closure to $g(n) = \exp(\Theta(\sqrt{\log n}))$ cannot be obtained by modifying Sanders/Beker Kelley–Meka density increments, `[FHHK Lem 3.4]` scale-uniformity, Bohr localization, or convex lattice balls alone.
+4. **Irreducible Barrier Map:** Summarizes why closing the full gap to $g(n) = \exp(\Theta(\sqrt{\log n}))$ requires going beyond Kelley–Meka / Sanders / Beker density increments and smooth convex $L^2$ lattice balls.
 
 ---
 
-## 2. Tightening Beker (2025) from `1/68` to `1/44`
+## 2. Analytic Lower-Bound Sketch: Reconciling Beker (2025) from `1/68` Toward `1/44` (Unverified)
+
+> **Status & Literature Context:** This section is an **analytic sketch** built on Beker (`2025`, `arXiv:2501.10203v2`), not a complete peer-checked proof or Lean formalization. While **Lemma 2.2** below is proved in full as a standalone bipartite tuple-peeling fact, substituting it into Beker's `[FHHK Lem 3.4]` and Bohr-set localization (`lm:main_technical_lemma` / `thm:general_groups`) has not yet been written out line by line from Beker's full text, so the resulting `1/44` exponent remains **unverified**. Moreover, two months before this repository was created, **Yao Zhi (`arXiv:2610.03750`, *"Branch-Sensitive Density Increments for $k$-Configurations"*, September/October 2026, unrefereed)** already claimed every $c < 1/36$ along Beker's route.
 
 ### 2.1 Origin of the `k^68` Bottleneck
-In Beker (2025), the main quantitative theorem relies on iterated Bohr-set density increments (`prop:density_increment`) parameterized by:
+In Beker (2025, `arXiv:2501.10203v2`), the quantitative density-increment step (`prop:density_increment`) is governed by:
 
 $$N \ge \exp\left(C \, k^{1 + 3a + b + c} \cdot \mathrm{poly}(\log k, \mathcal{L}(\alpha))\right)$$
 
 where:
-- `a = 5` is the `[FHHK Lem 3.4]` exponent converting $L^p$-almost-periodicity / solution counts into Bohr density increments (tight under current Kelley–Meka sifting technology; cf. even Raghavan's 2026 `1/9 -> 1/6` improvement for `3`-term arithmetic / sum-free subsets, where Hölder conversion on $S$ still enforces $p \asymp \delta^{-1}\mathcal{L}(\mu(S))$),
+- `a = 5` is the `[FHHK Lem 3.4]` exponent converting $L^p$-almost-periodicity / solution counts into Bohr density increments,
 - `b` is the dimension exponent in the Bohr-set density increment $\widetilde{d}' \ll k^b \cdots$,
 - `c` is the width loss exponent $\rho' \ge \rho \cdot \exp(-O(k^c \cdots))$.
 
-In Beker's original proof of `thm:graph_counting`, `Case (i)` invokes the symmetric graph counting bound `[FHHK Cor 2.3]`, which requires inflating *both* sides of an asymmetric rectangle $(S, T) \subset X^r \times Y$ from size $\mu(T) \ge \alpha_0^r$ back to comparable density before intersecting with a shifted Bohr sub-atom. In `Subcase B` (`r = 2`, $p' \asymp k^6 \mathcal{L}(\alpha)$) of `lm:main_technical_lemma`, that symmetrization loses `18` powers of $k$ in $b$ (`28 -> 46`) and `5` powers of $k$ in $c$ (`1 -> 6`), producing $1 + 3(5) + 46 + 6 = 68$.
+In Beker's proof of `thm:graph_counting`, `Case (i)` invokes the symmetric graph counting lemma (`[FHHK Cor 2.3]`), inflating *both* sides of an asymmetric pair $(S, T) \subset X^r \times Y$ from $\mu(T) \ge \alpha_0^r$ back to comparable density before intersecting with a shifted Bohr sub-atom. In `Subcase B` (`r = 2`, $p' \asymp k^6 \mathcal{L}(\alpha)$) of `lm:main_technical_lemma`, that symmetrization accounts for `18` powers of $k$ in $b$ (`28 -> 46`) and `5` powers of $k$ in $c$ (`1 -> 6`), giving $1 + 3(5) + 46 + 6 = 68$.
 
-### 2.2 Asymmetric Inductive Peeling Lemma
-Instead of symmetrizing via `[FHHK Cor 2.3]`, lift the Hölder exponent to $q' = \max(q, \lceil 8 / (r \widetilde{\delta}) \rceil)$ and inductively peel $s = r$ down to $1$ on:
+### 2.2 Lemma (Asymmetric Bipartite Tuple Peeling)
 
-$$G_s = \left\{x \in X^s : \mu_Y(T(x)) \ge \left(1 + \frac{\widetilde{\delta}}{4}\right)^s \alpha_0^s\right\}$$
+**Hypotheses.** Let $X, Y$ be finite non-empty sets equipped with uniform probability measures $\mu_X, \mu_Y$, and let $E \subseteq X \times Y$ be a bipartite relation with neighborhoods $N(x) := \{y \in Y : (x, y) \in E\}$ and common neighborhoods $T(x_1, \dots, x_s) := \bigcap_{i=1}^s N(x_i) \subseteq Y$. Fix an integer $r \ge 2$ and reals $\alpha_0 \in (0, 1]$, $\tilde{\delta} \in (0, 1]$, $\eta_r \in (0, 1]$. For each $s \in \{1, \dots, r\}$, define:
+$$\theta_s := \left(1 + \frac{\tilde{\delta}}{4}\right)^s \alpha_0^s, \qquad G_s := \left\{ x \in X^s : \mu_Y(T(x)) \ge \theta_s \right\}.$$
+Assume $\mu_{X^r}(G_r) \ge \eta_r$.
 
-where $T(x)$ denotes the common neighborhood of tuple $x$ inside $Y$. At each step $s \to s-1$, either the thick tuples satisfy Case (i) directly with an **asymmetric** bipartite rectangle $(S, T)$ of densities:
-- $\mu(S) \ge 2^{-r} \alpha_0^{r q'}$ and $\mu(T) \ge \alpha_0^r$ (for `Subcase A`, $r = 2(\ell - 1) \le 2k$, $\mu(T) \ge (\alpha/2)^r$ or $\alpha_0^r$), or
-- $\mu(S) \ge 2^{-r} \alpha_0^{r q'}$ and $\mu(T) \ge \alpha_0^2$ (yielding $\mu_{B^{(j)}}(T) \ge (\alpha/2)^3$ — **zero $k$-power!** — in `Subcase B`),
+**Conclusion.** At least one of the following holds:
+1. *(Asymmetric dense pair at some stage $s \in \{2, \dots, r\}$)* There exist subsets $S \subseteq X$ and $T \subseteq Y$ (of the form $T = T(x')$ for some $x' \in X^{s-1} \setminus G_{s-1}$) such that:
+   $$\mu_X(S) \ge \frac{\eta_r}{2^{r - s + 1}} \ge \frac{\eta_r}{2^r}, \qquad \mu_Y(T) \ge \theta_s \ge \alpha_0^s \ge \alpha_0^r,$$
+   and every vertex $x \in S$ has relative neighborhood density in $T$ strictly exceeding $(1 + \tilde{\delta}/4)\alpha_0$:
+   $$\frac{\mu_Y(N(x) \cap T)}{\mu_Y(T)} > \left(1 + \frac{\tilde{\delta}}{4}\right)\alpha_0.$$
+2. *(Single-element dense fiber at $s = 1$)* The set $G_1 = \{ x_1 \in X : \mu_Y(N(x_1)) \ge (1 + \tilde{\delta}/4)\alpha_0 \}$ satisfies $\mu_X(G_1) \ge \eta_r / 2^{r-1} \ge \eta_r / 2^r$.
 
-or else peeling reaches $s = 1$, triggering `Case (iii)` directly with $\mu(S) \ge 2^{-r} \alpha_0^{r q'}$.
+**Proof.** Induct downward on $s = r, r - 1, \dots, 2$, maintaining $\mu_{X^s}(G_s) \ge \eta_s := \eta_r / 2^{r - s}$. At step $s$:
+- If $\mu_{X^{s-1}}(G_{s-1}) \ge \eta_s / 2 = \eta_{s-1}$, pass to stage $s - 1$.
+- Otherwise, $\mu_{X^{s-1}}(G_{s-1}) < \eta_s / 2$. Since $(G_{s-1} \times X) \subseteq X^s$ has product measure $\mu_{X^{s-1}}(G_{s-1}) < \eta_s / 2$,
+  $$\mu_{X^s}\big(G_s \cap ((X^{s-1} \setminus G_{s-1}) \times X)\big) \ge \mu_{X^s}(G_s) - \mu_{X^{s-1}}(G_{s-1}) > \eta_s - \frac{\eta_s}{2} = \frac{\eta_s}{2}.$$
+  By averaging over $x' \in X^{s-1} \setminus G_{s-1}$, there exists $x' \in X^{s-1} \setminus G_{s-1}$ whose fiber $S := \{ x_s \in X : (x', x_s) \in G_s \}$ has $\mu_X(S) \ge \eta_s / 2 = \eta_r / 2^{r - s + 1} > 0$. Setting $T := T(x')$, for any $x_s \in S$ we have $T(x') \supseteq T(x', x_s)$, whence $\mu_Y(T) \ge \mu_Y(T(x', x_s)) \ge \theta_s \ge \alpha_0^s \ge \alpha_0^r$ (since $\alpha_0 \le 1$ and $s \le r$). Conversely, $x' \notin G_{s-1}$ gives $\mu_Y(T) < \theta_{s-1}$. Therefore, for every $x \in S$:
+  $$\frac{\mu_Y(N(x) \cap T)}{\mu_Y(T)} = \frac{\mu_Y(T(x', x))}{\mu_Y(T)} > \frac{\theta_s}{\theta_{s-1}} = \left(1 + \frac{\tilde{\delta}}{4}\right)\alpha_0,$$
+  establishing alternative (1).
 
-### 2.3 Complete 5-Branch Accounting for `prop:density_increment`
+If no stage $s \in \{2, \dots, r\}$ triggers alternative (1), then stage $s = 1$ retains $\mu_X(G_1) \ge \eta_1 = \eta_r / 2^{r-1}$, establishing alternative (2). $\blacksquare$
+
+*Application in Beker's setting (sketch):* Lifting Hölder exponent $q' = \max(q, \lceil 8/(r\tilde{\delta}) \rceil)$ in `lm:main_technical_lemma` (`\eta_r \ge \alpha_0^{rq'}`) and invoking Lemma 2.2 supplies either `Case (i)` directly with an asymmetric dense pair ($\mu(S) \ge 2^{-r}\alpha_0^{rq'}$ and $\mu(T) \ge \alpha_0^r$, giving $\mu_{B^{(j)}}(T) \ge (\alpha/2)^3$ at $r = 2$ in `Subcase B`), or `Case (iii)` directly at $s = 1$.
+
+### 2.3 Candidate Branch Accounting for `prop:density_increment` (Unverified)
+
+Assuming Lemma 2.2 can replace symmetric `[FHHK Cor 2.3]` inside `lm:main_technical_lemma` while transferring the remaining Bohr-localization bounds directly from Beker (`arXiv:2501.10203v2`) gives the following branch parameters:
 
 | Branch in `prop:density_increment` | Parameters (`Subcase` / Type) | Bohr Dimension Loss $\widetilde{d}'$ | Width Loss Exponent $c$ | Limiting $k$-power ($b$) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -57,26 +76,14 @@ or else peeling reaches $s = 1$, triggering `Case (iii)` directly with $\mu(S) \
 | `Case (i) — Subcase A` | $r = 2(\ell-1) \le 2k$, $p \asymp k^2 \mathcal{L}(\alpha)$ | $\ll k^{27}\mathcal{L}^6 + k^{25}\mathcal{L}^8$ | $1$ (loss $\exp(-O(k\mathcal{L}(\alpha/d) + k\mathcal{L}(\alpha) + k\log k))$) | $27$ |
 | `Case (i) — Subcase B` | $r = 2$, $p' \asymp k^6 \mathcal{L}(\alpha)$, $\mu_{B^{(j)}}(T) \ge (\alpha/2)^3$ | $\ll k^{28}\mathcal{L}(\alpha)^6 (\mathcal{L}(\alpha) + \log k)^2$ | $1$ | $28$ |
 
-Taking the worst case across all 5 harmonic/graph-counting branches (`a_H = 4`, `b = 28`, `c = 1`) together with `[FHHK Lem 3.4]` scale-uniformity (`a_L = 5`, `|\Delta_r| = 0`, `c = 1`):
+### 2.4 Candidate Two-Bucket Step Counting (`1/45 -> 1/44`, Unverified Sketch)
+Under this sketch, inspecting the iteration in `thm:general_groups` of Beker (2025) separates steps $(A_s, B_s)_{0 \le s \le t}$ into two disjoint classes:
+1. **Scale-uniformity steps ($s \in L$):** When `[FHHK Lem 3.4]` fires on $\mathcal{B} = \{B^{(j)}, \frac{1}{2} \cdot B^{(j)} : j \in [k]\}$, $\alpha_s \ge (1 + \frac{\gamma}{4k})\alpha_{s-1} = (1 + \Omega(k^{-5}))\alpha_{s-1}$ with $\Delta_s = \emptyset$ and width loss $\lambda_j \ge (\lambda/2)^k = \exp(-O(k(\mathcal{L}(\alpha/d_{s-1})+\log k)))$.
+2. **Harmonic / graph-counting steps ($s \in H$):** All remaining branches achieve density increment $\alpha_s \ge (1 + \Omega(k^{-4}))\alpha_{s-1}$ and add $|\Delta_s| \ll k^{28}(\log k)^2\mathcal{L}(\alpha)^6(\mathcal{L}(\alpha)+\log k)^2$ frequencies with width factor $c = 1$.
 
-### 2.4 Two-Bucket Step Counting (`1/45 -> 1/44`)
-Inspecting the iteration in `thm:general_groups` of Beker (2025) separates the chain $(A_s, B_s)_{0 \le s \le t}$ cleanly into two disjoint step types:
-1. **Scale-uniformity steps ($s \in L$):** When `[FHHK Lem 3.4]` fires on $\mathcal{B} = \{B^{(j)}, \frac{1}{2} \cdot B^{(j)} : j \in [k]\}$, we obtain $\alpha_s \ge (1 + \frac{\gamma}{4k})\alpha_{s-1} = (1 + \Omega(k^{-5}))\alpha_{s-1}$. Crucially, **zero new frequencies are added** ($\Delta_s = \emptyset$): $\widetilde{B}$ uses $\widetilde{\Gamma} = \Gamma_{s-1} \cup \{\gamma \psi_2^{-1} \mid \gamma \in \Gamma_{s-1}\}$, while rescaling $\frac{1}{2}\cdot B^{(j)}$ maps $\widetilde{\Gamma}$ to $\Gamma_{s-1} \cup \{\gamma \psi_2^{+1} \mid \gamma \in \Gamma_{s-1}\}$, both covered by `(vi)` with $\Delta_s = \emptyset$. Width shrinks by $\lambda_j \ge (\lambda/2)^k = \exp(-O(k(\mathcal{L}(\alpha/d_{s-1})+\log k)))$.
-2. **Harmonic / graph-counting steps ($s \in H$):** All remaining branches (Discrepancy, `Case (ii)`, `Case (iii)`, `Subcase A`, and asymmetric `Subcase B`) achieve density increment $\alpha_s \ge (1 + 2^{-11}\delta)\alpha_{s-1} = (1 + \Omega(k^{-4}))\alpha_{s-1}$ and add $|\Delta_s| \ll k^{28}(\log k)^2\mathcal{L}(\alpha)^6(\mathcal{L}(\alpha)+\log k)^2$ frequencies with width factor $c = 1$.
-
-Because $\alpha_s$ is monotone and $\alpha_t \le 1$, total length satisfies $t \ll k^5\mathcal{L}(\alpha)$, while nonzero frequency-adding steps are strictly bounded by $|H| \ll k^4\mathcal{L}(\alpha)$. Restricting the union bound in $\Gamma_t \subseteq \bigcup_{r \in \{0\} \cup H} \{\gamma \psi_2^a : \gamma \in \Delta_r,\, |a| \le t-r\}$ to $\{0\} \cup H$ yields:
-
-$$d_t = |\Gamma_t| \le (2t + 1) + \sum_{r \in H} (2(t - r) + 1)|\Delta_r| \ll t \cdot |H| \cdot k^{28}(\log k)^2\mathcal{L}(\alpha)^6(\mathcal{L}(\alpha)+\log k)^2 \ll \mathbf{k^{37}}(\log k)^2\mathcal{L}(\alpha)^8(\mathcal{L}(\alpha)+\log k)^2,$$
-
-saving a full power of $k$ over $t^2 k^{28} \sim k^{38}$, while width remains $\log(1/\rho_t) \ll t \cdot k(\mathcal{L}(\alpha/d_t)+\mathcal{L}(\alpha)+\log k) \ll k^6 \mathcal{L}(\alpha)(\mathcal{L}(\alpha)+\log k)$. Multiplying out in `thm:general_groups` gives:
-
-$$E_k = 1 + (a_L + a_H + b) + (a_L + c) = 1 + (5 + 4 + 28) + (5 + 1) = \mathbf{44}, \qquad E_{\mathcal{L}} = 12,$$
-
-establishing the sharpened threshold $N \ge \exp(C k^{44} (\log k)^5 \log(2/\alpha)^{12})$, sum-free extraction threshold $|X| \ge \exp(C' k^{44}(\log k)^{17}) = \exp(k^{44 + o(1)})$ (`prop:extract_sum_free`), and Erdős–Moser bound `thm:erdos_moser`:
-
-$$\phi(n) \ge (\log n)^{1 + c} \quad \forall\, c \in (0, 1/44) \quad \text{(e.g. } c = 1/45\text{)}, \qquad g(n) \ge (\log n)^{1 + \frac{1}{44} - o(1)}.$$
-
-*(Barrier note on `a_L = 5`: `[FHHK Lem 3.4]`'s $\gamma/(4k)$ factor across $2k$ Bohr scales cannot be lowered to $\Omega(\gamma)$ by a naive union-bound shift argument alone, as disjoint subsets concentrated on individual arithmetic sub-scales can isolate every single Bohr scale on its own coset of translates.)*
+Thus total chain length satisfies $t \ll k^5\mathcal{L}(\alpha)$ while nonzero frequency-adding steps satisfy $|H| \ll k^4\mathcal{L}(\alpha)$, motivating the union bound:
+$$d_t = |\Gamma_t| \le (2t + 1) + \sum_{r \in H} (2(t - r) + 1)|\Delta_r| \ll t \cdot |H| \cdot k^{28}\dots \ll \mathbf{k^{37}}(\log k)^2\mathcal{L}(\alpha)^8(\mathcal{L}(\alpha)+\log k)^2,$$
+with $E_k = 1 + (a_L + a_H + b) + (a_L + c) = 1 + (5 + 4 + 28) + (5 + 1) = \mathbf{44}$, matching $\phi(n) \ge (\log n)^{1 + c}$ for $c < 1/44$ as an unverified analytic target (still behind Yao Zhi `arXiv:2610.03750`'s `c < 1/36`).
 
 ---
 

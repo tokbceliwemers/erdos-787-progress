@@ -1,5 +1,5 @@
-import math
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -44,7 +44,7 @@ def run(cmd, cwd=ROOT):
 def check_lean():
     if not shutil.which("lean"):
         raise RuntimeError("`lean` not found in PATH")
-    print("[1/4] Compiling all 8 Pure Lean 4 standalone modules and auditing axioms...")
+    print("[1/5] Compiling all 8 Pure Lean 4 standalone modules and auditing axioms...")
     for mod in LEAN_MODULES:
         p = os.path.join(ROOT, "proofs", mod)
         txt = open(p, "r", encoding="utf-8").read()
@@ -73,19 +73,55 @@ def check_lean():
 def check_witnesses():
     if not shutil.which("g++"):
         raise RuntimeError("`g++` not found in PATH")
-    print("[2/4] Compiling C++ dual-exact witness verifier and auditing n = 1..143...")
+    print("[2/5] Compiling C++ dual-exact witness verifier and auditing n = 1..143...")
     with tempfile.TemporaryDirectory() as tmp:
         exe = os.path.join(tmp, "verify_witnesses_143.exe" if os.name == "nt" else "verify_witnesses_143")
         src = os.path.join(ROOT, "code", "verify_witnesses_143.cpp")
         run(["g++", "-O3", "-std=c++17", src, "-o", exe])
         print(" ", run([exe, os.path.join(ROOT, "data", "verified_1_100.txt"), "0"]))
         print(" ", run([exe, os.path.join(ROOT, "data", "verified_100_143.txt"), "1"]))
+        # Negative / tamper test: mutate alpha on a witness row and confirm verifier fails
+        tampered = os.path.join(tmp, "tampered_witness.txt")
+        first_row = open(os.path.join(ROOT, "data", "verified_100_143.txt"), "r", encoding="utf-8").readline().split()
+        first_row[1] = str(int(first_row[1]) - 1)
+        open(tampered, "w", encoding="utf-8").write(" ".join(first_row) + "\n")
+        res = subprocess.run([exe, tampered, "1"], cwd=ROOT, text=True, capture_output=True)
+        if res.returncode == 0:
+            raise RuntimeError("Witness verifier failed negative control (accepted tampered witness)!")
+        print("  PASS tampered-witness negative control")
+
+
+def check_sat_farkas():
+    if not shutil.which("g++"):
+        raise RuntimeError("`g++` not found in PATH")
+    print("[3/5] Verifying k=4,5 exact SAT + integer Farkas + DRAT proof pipeline...")
+    lib_ext = ".dll" if platform.system().lower().startswith("win") else (".dylib" if platform.system().lower() == "darwin" else ".so")
+    gordan_out = os.path.join(tempfile.gettempdir(), f"erdos787_gordan{lib_ext}")
+    cmd = ["g++", "-O3", "-shared"]
+    if not platform.system().lower().startswith("win"):
+        cmd.append("-fPIC")
+    cmd.extend([os.path.join(ROOT, "code", "gordan_dll.cpp"), "-o", gordan_out])
+    run(cmd)
+    py_out = run([sys.executable, os.path.join(ROOT, "code", "solve_k6_pos.py"), "selftest"])
+    if "fp_fallbacks=0" not in py_out or "dll_exact=0" in py_out:
+        raise RuntimeError(f"Unexpected solve_k6_pos.py selftest output:\n{py_out}")
+    print("  PASS solve_k6_pos.py selftest (100% C++ DLL + Python int Farkas + DRAT + tamper test)")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        exe = os.path.join(tmp, "k6_pos_solver.exe" if os.name == "nt" else "k6_pos_solver")
+        certs = os.path.join(tmp, "cpp_k45_certs.jsonl")
+        run(["g++", "-O3", "-std=c++17", "-fopenmp", os.path.join(ROOT, "code", "k6_pos_solver.cpp"), "-o", exe])
+        cpp_out = run([exe, "selftest", "--export-certs", certs])
+        if "100% __int128 verified" not in cpp_out:
+            raise RuntimeError("k6_pos_solver.cpp selftest did not report __int128 verification")
+        audit_out = run([sys.executable, os.path.join(ROOT, "code", "solve_k6_pos.py"), "--verify-certs", certs])
+        print(f"  PASS code/k6_pos_solver.cpp selftest -> {audit_out}")
 
 
 def check_lattices():
     if not shutil.which("g++"):
         raise RuntimeError("`g++` not found in PATH")
-    print("[3/4] Compiling and running C++ lattice & finite template executables...")
+    print("[4/5] Compiling and running C++ lattice & finite template executables...")
     cpp_tests = [
         ("ruzsa_lattice_test.cpp", False),
         ("ruzsa_variants_test.cpp", False),
@@ -101,12 +137,14 @@ def check_lattices():
                 cmd.append("-fopenmp")
             cmd.extend([os.path.join(ROOT, "code", fname), "-o", exe])
             run(cmd)
-            run([exe])
+            out = run([exe])
+            if "ERROR" in out:
+                raise RuntimeError(f"Error string detected in {fname}:\n{out}")
             print(f"  PASS code/{fname}")
 
 
 def check_algebra():
-    print("[4/4] Verifying infinite doubling sequence and closed-form identities...")
+    print("[5/5] Verifying infinite doubling sequence and closed-form identities...")
     F = [
         -42, -26, -24, -22, -20, -18, -16, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0,
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 26, 42,
@@ -127,6 +165,7 @@ def check_algebra():
 if __name__ == "__main__":
     check_lean()
     check_witnesses()
+    check_sat_farkas()
     check_lattices()
     check_algebra()
     print("ALL PUBLISH PACKAGE VERIFICATIONS PASSED (EXIT 0).")

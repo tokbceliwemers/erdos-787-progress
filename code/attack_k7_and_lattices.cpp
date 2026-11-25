@@ -68,6 +68,10 @@ static void test_lattices() {
     for (int m = 0; m <= 8; ++m) {
         uint64_t th = (m == 0) ? 1ULL : (240ULL * sigma3(m));
         cout << "  E_8 shell 2m=" << 2*m << ": dp=" << dp_e8[m] << " theorem=" << th << endl;
+        if (dp_e8[m] != th) {
+            cerr << "ERROR: E_8 theta mismatch at m=" << m << endl;
+            exit(1);
+        }
     }
 
     cout << "\n=== 2. E_8 Crossover vs D_8 and Quadratic k^2+3k-11 ===" << endl;
@@ -126,6 +130,10 @@ static void test_lattices() {
          << " L[1]=" << (int64_t)L24_shell[1]
          << " L[2]=" << (int64_t)L24_shell[2]
          << " L[3]=" << (int64_t)L24_shell[3] << endl;
+    if (L24_shell[0] != 1 || L24_shell[1] != 0 || L24_shell[2] != 196560 || L24_shell[3] != 16773120) {
+        cerr << "ERROR: Leech lattice shell invariant mismatch" << endl;
+        exit(1);
+    }
     // Note for Leech: normSq step is 2 (shells are 2m), AND min nonzero normSq is 4!
     // So any same-coset pair in B_{4L} drops by >= 4 into B_{4(L-1)}!
     // Wait: if we step in B_{4L} = {normSq <= 4L}, wait between B_{4L} and B_{4(L-1)},
