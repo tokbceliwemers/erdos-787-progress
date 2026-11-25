@@ -426,6 +426,9 @@ def build_tasks_for_case(m, k, j_elim):
 
 
 def _write_certs(cert_path, m, k, unique_certs):
+    parent = os.path.dirname(os.path.abspath(cert_path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     opener = gzip.open if cert_path.endswith(".gz") else open
     with opener(cert_path, "wt", encoding="utf-8") as f:
         for core_triples, weights in unique_certs:

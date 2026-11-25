@@ -6,7 +6,7 @@ Self-contained verification and publication archive for partial results on **Erd
 
 1. **Exact Finite Thresholds ($k \le 6$):**
    - $n_{\max}(1) = 3$, $n_{\max}(2) = 7$, $n_{\max}(3) = 13$, $n_{\max}(4) = 21$: machine-checked in Pure Lean 4 (`Init`-only, zero `sorry`) in [ThresholdsStandalone.lean](proofs/ThresholdsStandalone.lean) and [Threshold45Standalone.lean](proofs/Threshold45Standalone.lean).
-   - $n_{\max}(5) = 31$ ($m_+ = 16$ UNSAT across `1,379` tasks, `0` float fallbacks, with exact Farkas certificates & `cd195` DRAT logs) and $n_{\max}(6) = 43$ ($m_+ = 22$ UNSAT across all `21` branches, `4,010` tasks): verified over $\mathbb{R}$ via strict-exact [solve_k6_pos.py](code/solve_k6_pos.py) + cross-platform [gordan_dll.cpp](code/gordan_dll.cpp) and Pure C++ [k6_pos_solver.cpp](code/k6_pos_solver.cpp) (`100% __int128 verified`).
+   - $n_{\max}(5) = 31$ ($m_+ = 16$ UNSAT across `1,379` tasks, `0` float fallbacks, with exact Farkas certificates & `cd195` DRAT logs) and $n_{\max}(6) = 43$ ($m_+ = 22$ UNSAT across all `21` branches, `4,010` tasks, `fp_fallbacks=0`, `1,645,192` distinct exact integer Farkas certificates of up to `21` terms including `57,001` longer than `8` terms saved in [data/k6_farkas_certs.jsonl.gz](data/k6_farkas_certs.jsonl.gz)): verified over $\mathbb{R}$ via Pure C++ [k6_pos_solver.cpp](code/k6_pos_solver.cpp) (`100% __int128 verified`) and strict-exact [solve_k6_pos.py](code/solve_k6_pos.py) + cross-platform [gordan_dll.cpp](code/gordan_dll.cpp).
 2. **Breakdown of $k^2 + k + 1$ at $k = 7$ & Exact $g(n)$ on $[1, 59]$:**
    - Inductive doubling from $A_{43}$ ([InfiniteFamilyStandalone.lean](proofs/InfiniteFamilyStandalone.lean): `infinite_family_n_max_ge`) proves $n_{\max}(k) \ge k^2 + 3k - 11$ for all $k \ge 6$, showing that $k^2 + k + 1$ fails starting at $k = 7$ ($n_{\max}(7) \ge 59 > 57$, `k7_beats_projective_bound`).
    - Exact $g(n)$ is settled for all $n \in [1, 59]$, including $g(n) = 7$ on $[44, 59]$.
@@ -36,11 +36,19 @@ python verify_all.py
 This runs five verification stages:
 1. Compiles all 8 standalone Pure Lean 4 modules (`Init`-only, standard axioms `[propext, Classical.choice, Quot.sound]`, zero `sorry`) and runs `#print axioms`.
 2. Compiles and runs `verify_witnesses_143.cpp` across all `n = 1..143` witnesses, plus a negative tamper-rejection test.
-3. Builds cross-platform `gordan_dll.cpp` (Windows `.dll` / Linux `.so`), runs `solve_k6_pos.py selftest` (strict exact integer Farkas checking, zero float fallback, exporting all certificates regardless of term count + `cd195` DRAT logs + tampered-certificate negative test), and compiles/runs `k6_pos_solver.cpp selftest` with full exported-certificate audit.
+3. Builds cross-platform `gordan_dll.cpp` (Windows `.dll` / Linux `.so`), runs `solve_k6_pos.py selftest` (strict exact integer Farkas checking, zero float fallback, exporting all certificates regardless of term count + `cd195` DRAT logs + tampered-certificate negative test), compiles/runs `k6_pos_solver.cpp selftest`, and independently verifies all `1,645,192` exact `k = 6` Farkas certificates in [data/k6_farkas_certs.jsonl.gz](data/k6_farkas_certs.jsonl.gz).
 4. Compiles and runs all 5 lattice/template C++ executables with runtime bound assertions (`EXACT alpha <= k_bound`, `E_8` DP == theta formula).
 5. Verifies algebraic doubling identities (`F_0..F_5`) and jump discriminants.
 
-To run the full `k = 6` (`m_+ = 22`) solver across all 21 cases in strict exact mode with certificate saving:
+To reproduce the full `k = 6` (`m_+ = 22`) certificate dump from scratch:
+
+```bash
+g++ -O3 -std=c++17 -fopenmp code/k6_pos_solver.cpp -o k6_pos_solver
+./k6_pos_solver all --export-certs k6_all_certs.jsonl
+python code/solve_k6_pos.py --verify-certs k6_all_certs.jsonl
+```
+
+Or with optional per-subcase PySAT `cd195` DRAT proof logging:
 
 ```bash
 python code/solve_k6_pos.py all_waves --save-certs data/k6_certs.jsonl.gz --drat-dir tmp/k6_drat
@@ -51,6 +59,6 @@ python code/solve_k6_pos.py all_waves --save-certs data/k6_certs.jsonl.gz --drat
 - [paper/erdos_787_monograph.md](paper/erdos_787_monograph.md): Post-audit technical monograph.
 - [paper/asymptotic_closure_synthesis.md](paper/asymptotic_closure_synthesis.md): Asymmetric peeling lemma (proof), `1/44` analytic sketch, Yao Zhi (`arXiv:2610.03750`) context, $D_d$/$E_8$/$\Lambda_{24}$ lattice results, and barrier analysis.
 - [proofs/](proofs/): 8 zero-`sorry` Pure Lean 4 standalone verification modules (`Lean 4.27`–`4.36+` compatible).
-- [data/](data/): Dual-verified exact witnesses for $n = 1..143$ and [n100_bound_table.md](data/n100_bound_table.md).
+- [data/](data/): Dual-verified exact witnesses for $n = 1..143$, complete `k = 6` exact integer Farkas certificate archive ([k6_farkas_certs.jsonl.gz](data/k6_farkas_certs.jsonl.gz), `1,645,192` certs), and [n100_bound_table.md](data/n100_bound_table.md).
 - [code/](code/): Strict-exact SAT+Farkas solvers (`solve_k6_pos.py`, `gordan_dll.cpp`, `k6_pos_solver.cpp`), witness verifier, and lattice executables.
 - [figures/](figures/): 9 updated publication figures plus the unified 3x3 visual atlas [figures/erdos_787_all_figures.png](figures/erdos_787_all_figures.png).

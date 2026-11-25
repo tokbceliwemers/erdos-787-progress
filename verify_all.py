@@ -117,6 +117,13 @@ def check_sat_farkas():
         audit_out = run([sys.executable, os.path.join(ROOT, "code", "solve_k6_pos.py"), "--verify-certs", certs])
         print(f"  PASS code/k6_pos_solver.cpp selftest -> {audit_out}")
 
+    k6_archive = os.path.join(ROOT, "data", "k6_farkas_certs.jsonl.gz")
+    if os.path.exists(k6_archive):
+        k6_out = run([sys.executable, os.path.join(ROOT, "code", "solve_k6_pos.py"), "--verify-certs", k6_archive])
+        if "count=1645192" not in k6_out or "gt8_terms=57001" not in k6_out or "PASS" not in k6_out:
+            raise RuntimeError(f"Unexpected k6 certificate audit output:\n{k6_out}")
+        print(f"  PASS data/k6_farkas_certs.jsonl.gz -> {k6_out}")
+
 
 def check_lattices():
     if not shutil.which("g++"):

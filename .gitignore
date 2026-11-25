@@ -12,6 +12,7 @@ __pycache__/
 *.trace
 *.log
 *.drat
+learned_cores_m*.txt
 _build/
 build/
 tmp/

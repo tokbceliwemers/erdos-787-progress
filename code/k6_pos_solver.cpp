@@ -977,6 +977,27 @@ static bool run_suite(int m, int k, const vector<int>& j_list, const string& exp
     SolverTask sat_task;
     vector<Triple> sat_eqs;
     vector<pair<vector<Triple>, vector<int64_t>>> all_certs;
+    auto triple_lt = [](const Triple& a, const Triple& b) {
+        return tie(a.i, a.j, a.l) < tie(b.i, b.j, b.l);
+    };
+    auto vec_lt = [&](const pair<vector<Triple>, vector<int64_t>>& a,
+                      const pair<vector<Triple>, vector<int64_t>>& b) {
+        if (a.first.size() != b.first.size()) return a.first.size() < b.first.size();
+        return lexicographical_compare(a.first.begin(), a.first.end(),
+                                       b.first.begin(), b.first.end(), triple_lt);
+    };
+    auto dedup_certs = [&]() {
+        sort(all_certs.begin(), all_certs.end(), vec_lt);
+        all_certs.erase(unique(all_certs.begin(), all_certs.end(),
+                               [](const auto& a, const auto& b) {
+                                   return a.first.size() == b.first.size() &&
+                                          equal(a.first.begin(), a.first.end(), b.first.begin(),
+                                                [](const Triple& x, const Triple& y) {
+                                                    return x.i == y.i && x.j == y.j && x.l == y.l;
+                                                });
+                               }),
+                        all_certs.end());
+    };
 
     #pragma omp parallel for schedule(dynamic, 1)
     for (int idx = 0; idx < N; ++idx) {
@@ -995,6 +1016,7 @@ static bool run_suite(int m, int k, const vector<int>& j_list, const string& exp
             tot_cores += r.lp_cores;
             if (do_export) {
                 for (auto& c : r.exported_certs) all_certs.push_back(std::move(c));
+                if (all_certs.size() > 500000) dedup_certs();
             }
             if (r.status == 1 && !any_sat) {
                 any_sat = true;
@@ -1023,29 +1045,13 @@ static bool run_suite(int m, int k, const vector<int>& j_list, const string& exp
 
     size_t unique_count = 0, max_terms = 0, gt8_terms = 0;
     if (do_export) {
-        auto triple_lt = [](const Triple& a, const Triple& b) {
-            return tie(a.i, a.j, a.l) < tie(b.i, b.j, b.l);
-        };
-        auto vec_lt = [&](const pair<vector<Triple>, vector<int64_t>>& a,
-                          const pair<vector<Triple>, vector<int64_t>>& b) {
-            if (a.first.size() != b.first.size()) return a.first.size() < b.first.size();
-            return lexicographical_compare(a.first.begin(), a.first.end(),
-                                           b.first.begin(), b.first.end(), triple_lt);
-        };
-        sort(all_certs.begin(), all_certs.end(), vec_lt);
+        dedup_certs();
         ofstream fout(export_path, ios::app);
         if (!fout) {
             cerr << "ERROR: Failed to open export file: " << export_path << endl;
             return false;
         }
-        const vector<Triple>* prev = nullptr;
         for (const auto& kv : all_certs) {
-            if (prev && kv.first.size() == prev->size() &&
-                equal(kv.first.begin(), kv.first.end(), prev->begin(),
-                      [](const Triple& a, const Triple& b) { return a.i == b.i && a.j == b.j && a.l == b.l; })) {
-                continue;
-            }
-            prev = &kv.first;
             unique_count++;
             if (kv.first.size() > max_terms) max_terms = kv.first.size();
             if (kv.first.size() > 8) gt8_terms++;
@@ -1064,7 +1070,7 @@ static bool run_suite(int m, int k, const vector<int>& j_list, const string& exp
     }
 
     cout << "ALL " << N << " TASKS FOR m=" << m << ", k=" << k
-         << " PROVEN UNSAT (100% __int128 verified) in " << fixed << setprecision(2)
+         << " PROVEN UNSAT (100% __int128 verified, fp_fallbacks=0) in " << fixed << setprecision(2)
          << wall << "s (tot_cores=" << tot_cores << ", lp_calls=" << tot_lp;
     if (do_export) {
         cout << ", unique_exported=" << unique_count << ", max_terms=" << max_terms << ", gt8_terms=" << gt8_terms;
