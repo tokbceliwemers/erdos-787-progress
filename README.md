@@ -17,6 +17,12 @@ Self-contained verification and publication archive for partial results on **Erd
 
 **Open Status:** Both the asymptotic dichotomy between $(\log n)^{1 + 1/44 - o(1)}$ and $\exp((\sqrt{8\log 2} + o(1))\sqrt{\log n})$ and exact upper bounds for $n_{\max}(k)$ at $k \ge 7$ remain open.
 
+## Visual Overview
+
+![Erdős Problem #787 Visual Atlas](figures/erdos_787_all_figures.png)
+
+*Unified 3x3 atlas summarizing conflict topologies, exact $g(n)$ thresholds ($k \le 6$), the $k \ge 7$ breakdown of $k^2+k+1$, verified witnesses ($n \le 143$), $D_d$/$E_8$ crossovers, and the `1/44` vs. $\sqrt{8\log 2}$ asymptotic corridor.*
+
 ---
 
 ## Reproducible Verification
