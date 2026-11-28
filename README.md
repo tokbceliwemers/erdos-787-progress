@@ -17,6 +17,8 @@ Self-contained verification and publication archive for partial results on **Erd
 
 **Open Status:** Both the asymptotic dichotomy between polylogarithmic lower bounds and $\exp((\sqrt{8\log 2} + o(1))\sqrt{\log n})$ and exact upper bounds for $n_{\max}(k)$ at $k \ge 7$ remain open.
 
+A finite mixed-radix obstruction to parity-based merging is also machine-checked: in the three-layer $K=1, L=4$ tower, the host contains $8$ and $10$ but not their sum $18$, despite a short kernel vector matching their parity difference ([MixedRadixParityCounterexampleStandalone.lean](proofs/MixedRadixParityCounterexampleStandalone.lean)).
+
 ## Visual Overview
 
 ![Erdős Problem #787 Visual Atlas](figures/erdos_787_all_figures.png)
@@ -34,7 +36,7 @@ python verify_all.py
 ```
 
 This runs five verification stages:
-1. Compiles all 8 standalone Pure Lean 4 modules (`Init`-only, standard axioms `[propext, Classical.choice, Quot.sound]`, zero `sorry`) and runs `#print axioms`.
+1. Compiles all 9 standalone Pure Lean 4 modules (`Init`-only, standard axioms `[propext, Classical.choice, Quot.sound]`, zero `sorry`) and runs `#print axioms`.
 2. Compiles and runs `verify_witnesses_143.cpp` across all `n = 1..143` witnesses, plus a negative tamper-rejection test.
 3. Builds cross-platform `gordan_dll.cpp` (Windows `.dll` / Linux `.so`), runs `solve_k6_pos.py selftest` (strict exact integer Farkas checking, zero float fallback, exporting all certificates regardless of term count + `cd195` DRAT logs + tampered-certificate negative test), compiles/runs `k6_pos_solver.cpp selftest`, and independently verifies all `1,645,192` exact `k = 6` Farkas certificates in [data/k6_farkas_certs.jsonl.gz](data/k6_farkas_certs.jsonl.gz).
 4. Compiles and runs all 5 lattice/template C++ executables with runtime bound assertions (`EXACT alpha <= k_bound`, `E_8` DP == theta formula).
@@ -58,7 +60,7 @@ python code/solve_k6_pos.py all_waves --save-certs data/k6_certs.jsonl.gz --drat
 
 - [paper/erdos_787_monograph.md](paper/erdos_787_monograph.md): Post-audit technical monograph.
 - [paper/asymptotic_closure_synthesis.md](paper/asymptotic_closure_synthesis.md): Asymmetric peeling lemma (proof), `1/44` analytic sketch, Yao Zhi (`arXiv:2610.03750`) context, $D_d$/$E_8$/$\Lambda_{24}$ lattice results, and barrier analysis.
-- [proofs/](proofs/): 8 zero-`sorry` Pure Lean 4 standalone verification modules (`Lean 4.27`–`4.36+` compatible).
+- [proofs/](proofs/): 9 zero-`sorry` Pure Lean 4 standalone verification modules (`Lean 4.27`–`4.36+` compatible).
 - [data/](data/): Dual-verified exact witnesses for $n = 1..143$, complete `k = 6` exact integer Farkas certificate archive ([k6_farkas_certs.jsonl.gz](data/k6_farkas_certs.jsonl.gz), `1,645,192` certs), and [n100_bound_table.md](data/n100_bound_table.md).
 - [code/](code/): Strict-exact SAT+Farkas solvers (`solve_k6_pos.py`, `gordan_dll.cpp`, `k6_pos_solver.cpp`), witness verifier, and lattice executables.
 - [figures/](figures/): 9 updated publication figures plus the unified 3x3 visual atlas [figures/erdos_787_all_figures.png](figures/erdos_787_all_figures.png).

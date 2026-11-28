@@ -17,6 +17,7 @@ LEAN_MODULES = [
     "InfiniteFamilyStandalone.lean",
     "GeometryAndCarriesStandalone.lean",
     "AsymptoticClosureStandalone.lean",
+    "MixedRadixParityCounterexampleStandalone.lean",
 ]
 
 AXIOM_PROBES = [
@@ -41,10 +42,22 @@ def run(cmd, cwd=ROOT):
     return res.stdout.strip()
 
 
+def audit_standard_axioms(output):
+    allowed = {"propext", "Classical.choice", "Quot.sound"}
+    for line in output.splitlines():
+        if "depends on axioms:" not in line:
+            continue
+        raw = line.split("depends on axioms:", 1)[1].strip().strip("[]")
+        dependencies = {axiom.strip() for axiom in raw.split(",") if axiom.strip()}
+        unexpected = dependencies - allowed
+        if unexpected:
+            raise RuntimeError(f"Non-standard axiom dependency: {line}")
+
+
 def check_lean():
     if not shutil.which("lean"):
         raise RuntimeError("`lean` not found in PATH")
-    print("[1/5] Compiling all 8 Pure Lean 4 standalone modules and auditing axioms...")
+    print("[1/5] Compiling all 9 Pure Lean 4 standalone modules and auditing axioms...")
     for mod in LEAN_MODULES:
         p = os.path.join(ROOT, "proofs", mod)
         txt = open(p, "r", encoding="utf-8").read()
@@ -64,10 +77,22 @@ def check_lean():
         probe_path = os.path.join(tmp, "audit_axioms.lean")
         open(probe_path, "w", encoding="utf-8").write(probe)
         out = run(["lean", probe_path])
-        for line in out.splitlines():
-            if "depends on axioms:" in line and "[propext, Classical.choice, Quot.sound]" not in line:
-                raise RuntimeError(f"Non-standard axiom dependency: {line}")
+        audit_standard_axioms(out)
         print("  PASS axiom audit (only [propext, Classical.choice, Quot.sound])")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(ROOT, "proofs", "MixedRadixParityCounterexampleStandalone.lean")
+        probe = open(src, "r", encoding="utf-8").read() + "\n" + "\n".join(
+            [
+                "#print axioms Erdos787MixedRadixCounterexample.pair_values_are_distinct_and_in_host",
+                "#print axioms Erdos787MixedRadixCounterexample.pair_sum_is_not_in_any_layer",
+            ]
+        ) + "\n"
+        probe_path = os.path.join(tmp, "audit_mixed_radix_axioms.lean")
+        open(probe_path, "w", encoding="utf-8").write(probe)
+        out = run(["lean", probe_path])
+        audit_standard_axioms(out)
+        print("  PASS mixed-radix counterexample axiom audit")
 
 
 def check_witnesses():
